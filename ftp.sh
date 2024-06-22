@@ -14,13 +14,12 @@ function read_directories {
 	while read -r directory
 	do
 		directories+=($directory)
-	done < sync_directories
+	done < SYNC_DIRECTORIES
 }
 
 function get_file_list() {
 	echo "$FUNCNAME"
 	while ((${#directories[@]} != 0)); do
-		echo "================while start=============="
 		local current_directory=${directories[0]}
 		directories=("${directories[@]:1}")
 
@@ -42,15 +41,9 @@ function get_file_list() {
 		local next_directories=($(ls -d */))
 		if [ $? -eq 0 ]; then
 			for next_directory in ${next_directories[@]}; do
-				echo "next_directory: $next_directory"
-				echo "current_directory: ${current_directory}"
 				directories+=("${current_directory}/${next_directory%/}")
 			done
 		fi
-
-		echo "directories: ${directories[@]}"
-		echo "directories sizse: ${#directories[@]}"
-		echo "================while ENd=============="
 	done
 }
 
@@ -100,5 +93,8 @@ EOF
 }
 
 read_directories
+echo "directories: ${directories[@]}"
+
 get_file_list
+echo "files: ${files[@]}"
 backup_file_by_ftp
