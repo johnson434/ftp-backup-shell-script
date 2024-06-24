@@ -117,7 +117,8 @@ function backup_file_by_ftp() {
 		$(for ((i=0; i<${#file_directores[@]}; i++)); do
 			file=${files[i]##*/}
 			echo "lcd $(dirname $file)"
-			echo "cd "${file_directories[i]}""
+			echo "pwd"
+			echo "cd "/$FTP_DIRECTORY/${file_directories[i]}""
 			echo "put ${file##*/}"
 		done)
 
