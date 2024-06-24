@@ -13,11 +13,15 @@ trap '{ set +x; } 2>/dev/null; echo -n "[$(date -Is)]  "; set -x' DEBUG
 declare -a directories=()
 declare -a files=()
 
+# Set script location
+SCRIPT_FILE_LOCATION=$(realpath "$0")
+SCRIPT_DIRECTORY=$(dirname "$SCRIPT_FILE_LOCATION")
+
 function read_directories {
 	while read -r directory
 	do
 		directories+=($directory)
-	done < SYNC_DIRECTORIES
+	done < "$SCRIPT_DIRECTORY/SYNC_DIRECTORIES"
 }
 
 function get_file_list() {
@@ -59,58 +63,37 @@ function copy_files_to_downloads() {
 }
 
 function backup_file_by_ftp() {
-	readonly local SERVER
-	readonly local USER_NAME
-	readonly local PASSWORD
+	local SERVER
+	local USER_NAME
+	local PASSWORD
 
 	while IFS="=" read -r key value; do
+		echo "key: $key"
 		case "$key" in
 			"SERVER") SERVER="$value" ;;
 			"USER_NAME") USER_NAME="$value" ;;
 			"PASSWORD") PASSWORD="$value" ;;
 		esac
-	done < FTP_SETTING
+	done < "$SCRIPT_DIRECTORY/FTP_SETTING"
 
-	if [ $? -ne 0 ]; then
-		return -1
-	fi
+	local local_directories=()
+	local local_files=()
 
-	pwd
-	ls -al
-	echo $(pwd)
 
-	echo "SERVER: $SERVER USER_NAME: $USERN_NAME\n PASSWORD: $PASSWORD"
-	
-	ftp -inv $SERVER <<EOF
+	echo "SERVER: $SERVER USER_NAME: $USER_NAME\n PASSWORD: $PASSWORD"
+	echo "files: ${files[@]}"
+		
+	ftp -inv "$SERVER" <<EOF
 		user $USER_NAME $PASSWORD
 		binary
-
-		!(for f in "${files[@]}"; do cd /HDD1; ls -al; done)
-#
-#	for f in "${files[@]}"; do		
-#		cd /HDD1
-#		ls -al
-#
-#		file_full_name="$f"
-#		file_directory="${file_full_name}${f%/*}"
-#		lcd $file_directory
-#		lpwd
-#
-#		file_name="${file_full_name##*/}"
-#
-#		IFS='/' read -ra DEST <<< "$file_directory"
-#		for folder_name in "${DEST[@]}"; do
-#			mkdir $folder_name
-#			cd $folder_name
-#			pwd
-#		done
-#
-#		put $file_name
-#	done
-#
-bye
+		cd HDD1
+		pwd
+		$(for file in "${files[@]}"; do
+			echo "lcd $(dirname $file)"
+			echo "put ${file##*/}"
+		done)
+	bye
 EOF
-
 }
 
 read_directories
