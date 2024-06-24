@@ -1,7 +1,4 @@
-#! /usr/bin/bash
-readonly local SERVER="YOUR_FTP_SERVER_NAME"
-readonly local USER_NAME="FTP_USER_NAME"
-readonly local PASSWORD="FTP_USER_PASSWORD"
+#! /bin/bash
 
 echo
 echo "==sync start=="
@@ -11,61 +8,78 @@ declare -a files=()
 
 function read_directories {
 	echo "$FUNCNAME"
+
 	while read -r directory
 	do
 		directories+=($directory)
-	done < sync_directories
+	done < SYNC_DIRECTORIES
 }
 
 function get_file_list() {
 	echo "$FUNCNAME"
+
 	while ((${#directories[@]} != 0)); do
-		echo "================while start=============="
 		local current_directory=${directories[0]}
 		directories=("${directories[@]:1}")
 
 		# Add current_directory files.
 		cd $current_directory
 		if [ $? -ne 0 ]; then
-			echo "===========Fail to move to current_directory: $current_directory======="
+			echo "[error] $date: Fail to move to current_directory: $current_directory"
 			continue
 		fi
 
 		readarray -d '' file_names < <(find . -maxdepth 1 -type f -print0)
 		for file_name in "${file_names[@]}"; do
-			# echo "file_name: ${file_name%./}"
 			files+=("${current_directory}/${file_name#./}")
 		done
 
 		# Add next searching directory
-		echo "pwd: $(pwd)"
-		local next_directories=($(ls -d */))
+		local dir=$(ls -d */)
+		local next_directories=("${dir%/*}")
+
 		if [ $? -eq 0 ]; then
 			for next_directory in ${next_directories[@]}; do
-				echo "next_directory: $next_directory"
-				echo "current_directory: ${current_directory}"
 				directories+=("${current_directory}/${next_directory%/}")
 			done
 		fi
-
-		echo "directories: ${directories[@]}"
-		echo "directories sizse: ${#directories[@]}"
-		echo "================while ENd=============="
 	done
 }
 
 function copy_files_to_downloads() {
+	echo $FUNCNAME
 	for f in "${files[@]}"; do
 		destination_directory="/home/john/Downloads/copy${f%/*}"
-		echo "destination_directory: $destination_directory"
 		# get the name of file.
 		mkdir -p "$destination_directory"
 		cp "$f" "$destination_directory" 
 	done
 }
 
-function backup_file_by_ftp() {	
-	echo "function start: $FUNCNAME"
+function backup_file_by_ftp() {
+	echo "$FUNCNAME"
+
+	readonly local SERVER
+	readonly local USER_NAME
+	readonly local PASSWORD
+
+	while IFS="=" read -r key value; do
+		case "$key" in
+			"SERVER") SERVER="$value" ;;
+			"USER_NAME") USER_NAME="$value" ;;
+			"PASSWORD") PASSWORD="$value" ;;
+		esac
+	done < FTP_SETTING
+
+	if [ $? -ne 0 ]; then
+		return -1
+	fi
+
+	pwd
+	ls -al
+	echo $(pwd)
+
+	echo "SERVER: $SERVER USER_NAME: $USERN_NAME\n PASSWORD: $PASSWORD"
 	
 	ftp -inv $SERVER <<EOF
 		user $USER_NAME $PASSWORD
@@ -100,5 +114,9 @@ EOF
 }
 
 read_directories
+echo "read_directories_result: ${directories[@]}"
+
 get_file_list
+echo "get_file_list_result : ${files[@]}"
+
 backup_file_by_ftp
