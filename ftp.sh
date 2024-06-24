@@ -17,6 +17,9 @@ declare -a files=()
 SCRIPT_FILE_LOCATION=$(realpath "$0")
 SCRIPT_DIRECTORY=$(dirname "$SCRIPT_FILE_LOCATION")
 
+# directory where saves the file
+FTP_DIRECTORY="HDD1"
+
 function read_directories {
 	while read -r directory
 	do
@@ -75,25 +78,71 @@ function backup_file_by_ftp() {
 			"PASSWORD") PASSWORD="$value" ;;
 		esac
 	done < "$SCRIPT_DIRECTORY/FTP_SETTING"
-
-	local local_directories=()
-	local local_files=()
-
-
 	echo "SERVER: $SERVER USER_NAME: $USER_NAME\n PASSWORD: $PASSWORD"
-	echo "files: ${files[@]}"
-		
+
+	declare local -a pure_file_names=()
+	substract_file_name_from_files pure_file_names
+	echo "pure_file_names_size: ${#pure_file_names[@]}"
+
+	declare local -a pure_directory_name_of_files=()
+	substract_directory_from_files pure_directory_name_of_files
+	echo "pure_directory_name_of_files_size: ${#pure_directory_name_of_files[@]}"
+	echo "pure_file_names: ${pure_file_names[@]}"
+	echo "pure_directory_name_of_files: ${pure_directory_name_of_files[@]}"
+
+	# echo "files: ${files[@]}"
 	ftp -inv "$SERVER" <<EOF
 		user $USER_NAME $PASSWORD
 		binary
-		cd HDD1
+		cd "$FTP_DIRECTORY"
 		pwd
+		
+		$(for pure_directory_name in "${pure_directory_name_of_files[@]}"; do
+				echo "cd /$FTP_DIRECTORY"
+				echo "pure_directory_name: $pure_directory_name"
+				IFS="/" read -r -a directory_array <<< "$pure_directory_name"
+				echo "directory_array: ${directory_array[@]}"
+				for current_depth_directory in "${directory_array[@]}"; do
+					if [ -z "$current_depth_directory" ]; then
+						continue
+					fi
+					echo "current_depth_directory_length: ${#current_depth_directory}"
+
+					echo "mkdir $current_depth_directory"
+					echo "cd $current_depth_directory" 
+				done
+			done
+		)
+
+		$(for ((i=0; i<${#file_directores[@]}; i++)); do
+			file=${files[i]##*/}
+			echo "lcd $(dirname $file)"
+			echo "cd "${file_directories[i]}""
+			echo "put ${file##*/}"
+		done)
+
 		$(for file in "${files[@]}"; do
 			echo "lcd $(dirname $file)"
 			echo "put ${file##*/}"
 		done)
 	bye
 EOF
+}
+
+function substract_directory_from_files() {
+	local -n file_directories=$1
+
+	for f in "${files[@]}"; do
+		file_directories+=("${f%/*}")
+	done
+}
+
+function substract_file_name_from_files() {
+	local -n file_names=$1
+
+	for f in "${files[@]}"; do
+		file_names+=("${f##*/}")
+	done
 }
 
 read_directories
