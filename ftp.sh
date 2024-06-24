@@ -1,14 +1,19 @@
 #! /bin/bash
 
-echo
-echo "==sync start=="
+# logging setting
+LOGFILE="log.log"
+if [ ! -f ./log.log ]; then
+	touch log.log
+fi
+
+exec 3>&1 1>"$LOGFILE" 2>&1
+trap "echo 'ERROR: An error occurred during execution, check log $LOGFILE for details.' >&3" ERR
+trap '{ set +x; } 2>/dev/null; echo -n "[$(date -Is)]  "; set -x' DEBUG
 
 declare -a directories=()
 declare -a files=()
 
 function read_directories {
-	echo "$FUNCNAME"
-
 	while read -r directory
 	do
 		directories+=($directory)
@@ -16,8 +21,6 @@ function read_directories {
 }
 
 function get_file_list() {
-	echo "$FUNCNAME"
-
 	while ((${#directories[@]} != 0)); do
 		local current_directory=${directories[0]}
 		directories=("${directories[@]:1}")
@@ -25,7 +28,7 @@ function get_file_list() {
 		# Add current_directory files.
 		cd $current_directory
 		if [ $? -ne 0 ]; then
-			echo "[error] $date: Fail to move to current_directory: $current_directory"
+			echo "fail to move to $current_directory folder."
 			continue
 		fi
 
@@ -47,7 +50,6 @@ function get_file_list() {
 }
 
 function copy_files_to_downloads() {
-	echo $FUNCNAME
 	for f in "${files[@]}"; do
 		destination_directory="/home/john/Downloads/copy${f%/*}"
 		# get the name of file.
@@ -57,8 +59,6 @@ function copy_files_to_downloads() {
 }
 
 function backup_file_by_ftp() {
-	echo "$FUNCNAME"
-
 	readonly local SERVER
 	readonly local USER_NAME
 	readonly local PASSWORD
