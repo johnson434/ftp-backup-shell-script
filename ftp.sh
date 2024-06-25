@@ -17,9 +17,6 @@ declare -a files=()
 SCRIPT_FILE_LOCATION=$(realpath "$0")
 SCRIPT_DIRECTORY=$(dirname "$SCRIPT_FILE_LOCATION")
 
-# directory where saves the file
-FTP_DIRECTORY="HDD1"
-
 function read_directories {
 	while read -r directory
 	do
@@ -70,15 +67,33 @@ function backup_file_by_ftp() {
 	local USER_NAME
 	local PASSWORD
 
+	# directory where saves the file
+	local FTP_DIRECTORY
+
 	while IFS="=" read -r key value; do
 		echo "key: $key"
 		case "$key" in
 			"SERVER") SERVER="$value" ;;
 			"USER_NAME") USER_NAME="$value" ;;
 			"PASSWORD") PASSWORD="$value" ;;
+			"FTP_DIRECTORY") FTP_DIRECTORY="$value"
 		esac
 	done < "$SCRIPT_DIRECTORY/FTP_SETTING"
 	echo "SERVER: $SERVER USER_NAME: $USER_NAME\n PASSWORD: $PASSWORD"
+
+	if [ -z $SERVER ]; then
+		echo "Cann't find SERVER value in FTP_SETTING"
+		return -1
+	elif [ -z $USER_NAME ]; then
+		echo "Cann't find USER_NAME value in FTP_SETTING"
+		return -1
+	elif [ -z $PASSWORD ]; then
+		echo "Cann't find PASSWORD value in FTP_SETTING"
+		return -1
+	elif [ -z $FTP_DIRECTORY ]; then
+		echo "Cann't find FTP_DIRECTORY value in FTP_SETTING"
+		return -1
+	fi
 
 	declare local -a pure_file_names=()
 	substract_file_name_from_files pure_file_names
@@ -90,42 +105,22 @@ function backup_file_by_ftp() {
 	echo "pure_file_names: ${pure_file_names[@]}"
 	echo "pure_directory_name_of_files: ${pure_directory_name_of_files[@]}"
 
-	# echo "files: ${files[@]}"
 	ftp -inv "$SERVER" <<EOF
 		user $USER_NAME $PASSWORD
 		binary
-		cd "$FTP_DIRECTORY"
 		pwd
+		cd "/$FTP_DIRECTORY"
 		
-		$(for pure_directory_name in "${pure_directory_name_of_files[@]}"; do
-				echo "cd /$FTP_DIRECTORY"
-				echo "pure_directory_name: $pure_directory_name"
-				IFS="/" read -r -a directory_array <<< "$pure_directory_name"
-				echo "directory_array: ${directory_array[@]}"
-				for current_depth_directory in "${directory_array[@]}"; do
-					if [ -z "$current_depth_directory" ]; then
-						continue
-					fi
-					echo "current_depth_directory_length: ${#current_depth_directory}"
 
-					echo "mkdir $current_depth_directory"
-					echo "cd $current_depth_directory" 
-				done
+		$(for (( i=0; i<${#files[@]}; i++ )); do
+			    f=${files[i]}
+			    backup_directory=${pure_directory_name_of_files[i]}
+			    echo "cd /$FTP_DIRECTORY/$backup_directory"
+			    echo "pwd"
+			    echo "lcd $(dirname $f)"
+			    echo "put ${f##*/}"
 			done
 		)
-
-		$(for ((i=0; i<${#file_directores[@]}; i++)); do
-			file=${files[i]##*/}
-			echo "lcd $(dirname $file)"
-			echo "pwd"
-			echo "cd "/$FTP_DIRECTORY/${file_directories[i]}""
-			echo "put ${file##*/}"
-		done)
-
-		$(for file in "${files[@]}"; do
-			echo "lcd $(dirname $file)"
-			echo "put ${file##*/}"
-		done)
 	bye
 EOF
 }
@@ -153,3 +148,7 @@ get_file_list
 echo "get_file_list_result : ${files[@]}"
 
 backup_file_by_ftp
+
+
+
+
