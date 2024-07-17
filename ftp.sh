@@ -26,7 +26,8 @@ function read_backup_directories {
 function get_file_list() {
 	while ((${#backup_directories[@]} != 0)); do
 		local current_directory=${backup_directories[0]}
-		backup_directories=("${directories[@]:1}")
+		backup_directories=(${backup_directories[@]:1})
+		# echo "current_directory: ${current_directory}"
 
 		# Add current_directory files.
 		cd $current_directory
@@ -99,17 +100,31 @@ function backup_file_by_ftp() {
 		user $USER_NAME $PASSWORD
 		binary
 		pwd
-		cd "/$FTP_DIRECTORY"
 
-		$(for (( i=0; i<${#files[@]}; i++ )); do
-			    backup_directory=${pure_directory_name_of_files[i]}
-			    echo "cd /$FTP_DIRECTORY$backup_directory"
-			    echo "pwd"
-			    echo "lcd $backup_directory"
+		$(for directory_name in ${!directory_map[@]}; do
+				echo "cd /$FTP_DIRECTORY"
 
-			    f=${files[i]}
-			    echo "put ${f##*/}"
-			done
+				IFS="/"
+				read -ra array <<< "$directory_name"
+
+				for ((i=0; i<${#array[@]}; i++)); do
+					echo "mkdir ${array[i]}"
+					echo "cd ${array[i]}"
+				done
+
+		done
+		for (( i=0; i<${#files[@]}; i++ )); do
+			echo "cd /$FTP_DIRECTORY"                           
+      backup_directory=${pure_directory_name_of_files[i]}
+			IFS="/"                                             
+		                                                      	
+		  echo "cd /$FTP_DIRECTORY$backup_directory"          	
+		  echo "pwd"                                          	
+      echo "lcd $backup_directory"
+		                                                      	
+		  f=${files[i]}                                       	
+		  echo "put ${f##*/}"                                 	
+    done
 		)
 	bye
 EOF
@@ -132,6 +147,8 @@ function substract_file_name_from_files() {
 }
 
 read_backup_directories
+echo ${backup_directories[@]}
+
 get_file_list 
 
 
@@ -142,5 +159,13 @@ echo "pure_file_names: ${pure_file_names[@]}"
 declare -a pure_directory_name_of_files=()
 substract_directory_from_files pure_directory_name_of_files
 echo "pure_directory_name_of_files; ${pure_directory_name_of_files[@]}"
+
+declare -A directory_map=()
+for d in ${pure_directory_name_of_files[@]}; do
+	echo "d: $d"
+	directory_map["$d"]=true
+done
+
+echo "key: ${!directory_map[@]}"
 
 backup_file_by_ftp
