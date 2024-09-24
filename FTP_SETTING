@@ -1,0 +1,4 @@
+SERVER=ftp-server-address.com
+USER_NAME=username
+PASSWORD=password
+FTP_DIRECTORY=server-backup-directory
